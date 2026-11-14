@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>GhostChat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-box">
+      <div class="auth-logo">✦</div>
+      <h2 id="authTitle">Welcome back</h2>
+      <p id="authSub">Log in to GhostChat</p>
+      <input type="text" id="authUser" placeholder="Username" maxlength="30" autocomplete="username">
+      <input type="password" id="authPass" placeholder="Password" maxlength="100" autocomplete="current-password">
+      <button id="authBtn" class="auth-submit">Log in</button>
+      <p id="authErr" class="auth-err"></p>
+      <p class="auth-switch">Don't have an account? <button id="authSwitchBtn" class="link-btn">Register</button></p>
+      <p class="auth-switch" style="margin-top:8px"><button id="forgotPwdBtn" class="link-btn" style="color:var(--muted)">Forgot password?</button></p>
+    </div>
+  </div>
+
+  <div id="app" style="display:none">
+    <header>
+      <button id="settingsBtn">⚙️</button>
+      <h1>GhostChat</h1>
+      <div id="followCount" style="display:none"></div>
+      <button id="themeBtn">🌙</button>
+    </header>
+
+    <div id="pageContainer">
+
+      <!-- HOME -->
+       <div id="homePage">
+        <div class="feed-tabs">
+          <button class="feed-tab active" id="feedTabForYou">For You</button>
+          <button class="feed-tab" id="feedTabFollowing">Following</button>
+        </div>
+        <div id="storiesSection"><div id="storiesRow"></div></div>
+        <div id="storyViewer">
+          <div id="storyBar"><div id="storyProgress"></div></div>
+          <div id="storyHeader">
+            <div id="storyAuthor"></div>
+            <div id="storyTime"></div>
+            <button id="storyClose">✕</button>
+          </div>
+          <div id="storyContent"></div>
+          <div class="story-view-count" id="storyViewCount" style="display:none"></div>
+          <div class="story-view-list" id="storyViewList" style="display:none"></div>
+        </div>
+        <input type="file" id="storyFileInput" accept="image/*,video/*" style="display:none">
+        <div id="feedSection"><div id="feed"></div></div>
+      </div>
+
+      <!-- SEARCH -->
+      <div id="searchSection">
+        <input type="text" id="searchPageBox" placeholder="🔍 Search people and posts...">
+        <div id="searchPageResults"></div>
+        <div class="card who" style="margin-top:0"><h3>Who to follow</h3><div id="whoList"></div></div>
+        <div class="card trending"><h3>🔥 Trending</h3><div id="trendList">No hashtags yet</div></div>
+      </div>
+
+      <!-- NOTIFICATIONS -->
+      <div id="notifsSection"><div id="notifListPage"></div></div>
+
+      <!-- MESSAGES -->
+      <div id="messagesSection">
+        <div class="messages-tabs">
+          <button class="messages-tab active" id="msgTabDm">Direct</button>
+          <button class="messages-tab" id="msgTabGroups">Groups</button>
+        </div>
+        <div class="messages-list" id="dmList"></div>
+        <div class="messages-list" id="groupListPage" style="display:none">
+          <div id="groupListInner"></div>
+          <div style="padding:16px">
+            <input type="text" id="groupNameInput" placeholder="Group name..." maxlength="50" style="width:100%;background:var(--soft);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:14px;font-family:Inter,sans-serif;margin-bottom:8px">
+            <input type="text" id="groupMembersInput" placeholder="Add members (comma separated)..." maxlength="200" style="width:100%;background:var(--soft);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:14px;font-family:Inter,sans-serif;margin-bottom:8px">
+            <button id="groupCreateBtn" style="width:100%;background:linear-gradient(135deg,#7c5cfc,#9b6dff);color:white;border:none;border-radius:20px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">➕ Create Group</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFILE -->
+      <div id="profileSection">
+        <div id="myBanner" class="profile-banner"></div>
+        <div class="profile-info-area">
+          <div class="profile-top-row">
+            <div class="profile-big-avatar" id="myAvatar">?</div>
+            <button id="editProfileBtn" class="edit-profile-btn">✏️ Edit Profile</button>
+          </div>
+          <div class="profile-name" id="myName"></div>
+          <div class="profile-handle" id="myHandle"></div>
+          <div class="profile-bio" id="bio">Add a bio</div>
+          <a id="myWebsite" href="#" target="_blank" class="profile-website"></a>
+          <div class="profile-stats">
+            <div class="profile-stat"><div class="profile-stat-num" id="postCount">0</div><div class="profile-stat-label">Posts</div></div>
+            <div class="profile-stat"><div class="profile-stat-num" id="myFollowers">0</div><div class="profile-stat-label">Followers</div></div>
+            <div class="profile-stat"><div class="profile-stat-num" id="myFollowing">0</div><div class="profile-stat-label">Following</div></div>
+          </div>
+          <div id="privacyToggle" style="display:none"><input type="checkbox" id="privateCheck"><label for="privateCheck">Private 🔒</label></div>
+          <button id="logoutBtn" style="margin-top:16px;background:none;border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:8px 20px;font-size:14px;cursor:pointer;font-family:Inter,sans-serif">Log out</button>
+        </div>
+        <div id="profileFeed" style="border-top:1px solid var(--border);margin-top:8px"></div>
+      </div>
+
+    </div>
+
+    <!-- Bottom nav -->
+    <nav id="bottomNav">
+      <button class="nav-btn active" id="navHome"><span>🏠</span><span>Home</span></button>
+      <button class="nav-btn" id="navSearch"><span>🔍</span><span>Search</span></button>
+      <button class="nav-btn" id="navNotifs"><span>🔔<span id="notifBadge" class="notif-badge" style="display:none">0</span></span><span>Activity</span></button>
+      <button class="nav-btn" id="navMessages"><span>💬</span><span>Messages</span></button>
+      <button class="nav-btn" id="navProfile"><span>👤</span><span>Profile</span></button>
+    </nav>
+
+    <!-- Floating compose -->
+    <button id="composeFab">✏️</button>
+
+    <!-- Compose modal -->
+    <div id="composeModal">
+      <div id="composeBox">
+        <div class="compose-header">
+          <h3>New Post</h3>
+          <button id="composeClose">✕</button>
+        </div>
+        <div class="compose-row">
+          <div class="compose-avatar" id="composeAvatar">?</div>
+          <textarea id="postText" maxlength="280" placeholder="What's happening?"></textarea>
+        </div>
+        <div id="emojiPanel" class="emoji-panel"></div>
+        <!-- Poll compose area -->
+        <div class="poll-compose" id="pollCompose">
+          <div class="poll-compose-title">
+            <span>📊 Poll Options</span>
+            <button id="removePollBtn">✕ Remove Poll</button>
+          </div>
+          <div id="pollOptions">
+            <div class="poll-compose-option">
+              <input type="text" placeholder="Option 1" maxlength="60" class="poll-option-input">
+              <button class="remove-opt" style="visibility:hidden">✕</button>
+            </div>
+            <div class="poll-compose-option">
+              <input type="text" placeholder="Option 2" maxlength="60" class="poll-option-input">
+              <button class="remove-opt" style="visibility:hidden">✕</button>
+            </div>
+          </div>
+          <button class="add-poll-option" id="addPollOptionBtn">+ Add option</button>
+        </div>
+        <div class="compose-actions">
+          <label class="compose-action-btn" for="photoInput">📷</label>
+          <input type="file" id="photoInput" accept="image/*,video/*" multiple>
+          <button id="emojiBtn" class="compose-action-btn">😊</button>
+          <button id="pollToggleBtn">📊</button>
+          <span id="fileName"></span>
+          <span id="counter">280</span>
+          <button id="postBtn">Post</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quote repost modal -->
+    <div class="quote-modal" id="quoteModal">
+      <div class="quote-box">
+        <h3>Quote Repost</h3>
+        <div class="quote-preview" id="quotePreview"></div>
+        <textarea class="quote-textarea" id="quoteText" maxlength="280" placeholder="Add your comment..."></textarea>
+        <div class="quote-actions">
+          <button class="quote-cancel-btn" id="quoteCancelBtn">Cancel</button>
+          <button class="quote-submit-btn" id="quoteSubmitBtn">Post</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Profile overlay -->
+    <div id="editProfileOverlay" class="overlay-panel">
+      <div class="overlay-header">
+        <button id="editProfileClose" class="overlay-back">✕</button>
+        <h3>Edit Profile</h3>
+        <button id="saveProfileBtn" class="overlay-save-btn">Save</button>
+      </div>
+      <div class="overlay-body">
+        <div class="banner-upload-area">
+          <div id="editBannerPreview" class="edit-banner-preview">
+            <label for="bannerFileInput" class="banner-upload-btn">📷 Change Banner</label>
+          </div>
+          <input type="file" id="bannerFileInput" accept="image/*" style="display:none">
+        </div>
+        <div class="edit-avatar-row">
+          <div class="avatar big" id="editProfileAvatar" style="width:72px;height:72px;font-size:24px;border:3px solid var(--bg)">?</div>
+          <label for="editAvatarFileInput" class="edit-avatar-label">📷</label>
+          <input type="file" id="editAvatarFileInput" accept="image/*" style="display:none">
+        </div>
+        <div class="edit-fields">
+          <div class="edit-field"><label>Display Name</label><input type="text" id="editDisplayName" maxlength="50" placeholder="Your name"></div>
+          <div class="edit-field"><label>Bio</label><textarea id="editBioField" maxlength="160" placeholder="Tell people about yourself" rows="3"></textarea></div>
+          <div class="edit-field"><label>Website</label><input type="text" id="editWebsite" maxlength="100" placeholder="https://yoursite.com"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings overlay -->
+    <div id="settingsOverlay" class="overlay-panel">
+      <div class="overlay-header">
+        <button id="settingsClose" class="overlay-back">✕</button>
+        <h3>Settings</h3>
+      </div>
+      <div class="overlay-body">
+        <div class="settings-section">
+          <div class="settings-title">Account</div>
+          <div class="settings-item" id="changePasswordItem"><span>🔑 Change Password</span><span class="settings-arrow">›</span></div>
+          <div class="settings-item" id="securityQuestionItem"><span>🛡 Security Question</span><span class="settings-arrow">›</span></div>
+          <div class="settings-item danger" id="deleteAccountItem"><span>🗑 Delete Account</span><span class="settings-arrow">›</span></div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-title">Privacy</div>
+          <div class="settings-item"><span>🔒 Private Account</span><input type="checkbox" id="settingsPrivateCheck" class="settings-toggle"></div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-title">Notifications</div>
+          <div class="settings-item"><span>♥ Likes</span><input type="checkbox" id="settingsNotifLikes" class="settings-toggle" checked></div>
+          <div class="settings-item"><span>💬 Replies</span><input type="checkbox" id="settingsNotifReplies" class="settings-toggle" checked></div>
+          <div class="settings-item"><span>👤 New Followers</span><input type="checkbox" id="settingsNotifFollows" class="settings-toggle" checked></div>
+          <div class="settings-item"><span>📨 Messages</span><input type="checkbox" id="settingsNotifMessages" class="settings-toggle" checked></div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-title">Legal</div>
+          <a href="/terms.html" target="_blank" class="settings-link-item">📄 Terms of Service</a>
+          <a href="/privacy.html" target="_blank" class="settings-link-item">🔏 Privacy Policy</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change Password overlay -->
+    <div id="changePwdOverlay" class="overlay-panel">
+      <div class="overlay-header">
+        <button id="changePwdClose" class="overlay-back">✕</button>
+        <h3>Change Password</h3>
+      </div>
+      <div class="overlay-body">
+        <div class="edit-fields">
+          <div class="edit-field"><label>Current Password</label><input type="password" id="currentPwdInput" maxlength="100" placeholder="Enter current password"></div>
+          <div class="edit-field"><label>New Password</label><input type="password" id="newPwdInput" maxlength="100" placeholder="At least 6 characters"></div>
+          <div class="edit-field"><label>Confirm New Password</label><input type="password" id="confirmPwdInput" maxlength="100" placeholder="Repeat new password"></div>
+          <p id="pwdError" class="auth-err"></p>
+          <button id="savePwdBtn" class="full-btn">Save New Password</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat view -->
+    <div id="chatView">
+      <div id="chatViewHeader">
+        <button id="chatViewBack">←</button>
+        <div id="chatViewName">Chat</div>
+        <button id="chatViewCallBtn">📞</button>
+      </div>
+      <div id="chatMessages"></div>
+      <div class="typing-indicator" id="typingIndicator" style="display:none">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <span class="typing-text" id="typingText">typing...</span>
+      </div>
+      <div id="chatViewInput">
+        <input type="text" id="chatViewBox" maxlength="1000" placeholder="Message...">
+        <button id="chatViewSend">➤</button>
+      </div>
+    </div>
+
+    <!-- Group panel -->
+    <div id="groupPanel">
+      <div id="groupPanelHeader">
+        <h3 id="groupPanelTitle">Groups</h3>
+        <button id="groupClose">✕</button>
+      </div>
+      <div id="groupList"></div>
+      <div id="groupMessages" style="display:none"></div>
+      <div id="groupCreate" style="display:none">
+        <input type="text" id="groupNameInputPanel" placeholder="Group name..." maxlength="50">
+        <input type="text" id="groupMembersInputPanel" placeholder="Members (comma separated)..." maxlength="200">
+        <button id="groupCreateBtnPanel">➕ Create</button>
+      </div>
+      <div id="groupInput" style="display:none">
+        <input type="text" id="groupMsgBox" maxlength="1000" placeholder="Type a message...">
+        <button id="groupMsgSend">➤</button>
+      </div>
+    </div>
+
+    <!-- Copy link toast -->
+    <div id="copyToast">🔗 Link copied!</div>
+
+    <!-- Calls -->
+    <div id="callScreen">
+      <div id="callStatus">Calling...</div>
+      <div id="callPartner"></div>
+      <video id="callRemoteVideo" autoplay playsinline></video>
+      <video id="callLocalVideo" autoplay playsinline muted></video>
+      <div id="callControls">
+        <button class="call-btn mute" id="callMuteBtn">🎤</button>
+        <button class="call-btn cam" id="callCamBtn">📷</button>
+        <button class="call-btn end" id="callEndBtn">📵</button>
+      </div>
+    </div>
+    <div id="callIncoming">
+      <p id="callIncomingText">Someone is calling...</p>
+      <div class="actions">
+        <button class="accept" id="callAcceptBtn">✅ Accept</button>
+        <button class="decline" id="callDeclineBtn">❌ Decline</button>
+      </div>
+    </div>
+  </div>
+  <!-- Password reset screen -->
+    <div id="resetScreen">
+      <div class="reset-box">
+        <h2>Reset Password</h2>
+        <!-- Step 1: enter username -->
+        <div class="reset-step active" id="resetStep1">
+          <p>Enter your username to find your account.</p>
+          <input type="text" id="resetUsername" placeholder="Username" maxlength="30">
+          <div class="reset-err" id="resetErr1"></div>
+          <button class="full-btn" id="resetNext1Btn">Continue</button>
+          <p style="text-align:center;margin-top:14px"><button class="link-btn" id="resetBackBtn" style="color:var(--muted)">← Back to login</button></p>
+        </div>
+        <!-- Step 2: answer security question -->
+        <div class="reset-step" id="resetStep2">
+          <p id="resetQuestionText" style="font-size:15px;color:var(--text);margin-bottom:16px;font-weight:600"></p>
+          <input type="text" id="resetAnswer" placeholder="Your answer" maxlength="100">
+          <input type="password" id="resetNewPwd" placeholder="New password (min 6 characters)" maxlength="100">
+          <input type="password" id="resetConfirmPwd" placeholder="Confirm new password" maxlength="100">
+          <div class="reset-err" id="resetErr2"></div>
+          <button class="full-btn" id="resetSubmitBtn">Reset Password</button>
+        </div>
+        <!-- Step 3: success -->
+        <div class="reset-step" id="resetStep3">
+          <div class="reset-success" style="display:block">✅ Password reset successfully!</div>
+          <button class="full-btn" style="margin-top:16px" id="resetDoneBtn">Log in now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security question overlay -->
+    <div id="securityQuestionOverlay" class="overlay-panel">
+      <div class="overlay-header">
+        <button id="securityQuestionClose" class="overlay-back">✕</button>
+        <h3>Security Question</h3>
+      </div>
+      <div class="overlay-body">
+        <div class="edit-fields">
+          <p style="font-size:14px;color:var(--muted);padding:0 0 8px">Set a security question so you can reset your password if you forget it.</p>
+          <div class="edit-field">
+            <label>Choose a question</label>
+            <select id="securityQuestionSelect" style="background:var(--soft);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:15px;font-family:Inter,sans-serif;width:100%">
+              <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+              <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+              <option value="What city were you born in?">What city were you born in?</option>
+              <option value="What was the name of your first school?">What was the name of your first school?</option>
+              <option value="What is the name of your childhood best friend?">What is the name of your childhood best friend?</option>
+              <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+              <option value="What is your oldest sibling's middle name?">What is your oldest sibling's middle name?</option>
+            </select>
+          </div>
+          <div class="edit-field">
+            <label>Your Answer</label>
+            <input type="text" id="securityAnswerInput" maxlength="100" placeholder="Enter your answer">
+          </div>
+          <p id="securityQuestionErr" class="auth-err"></p>
+          <p id="securityQuestionSuccess" style="color:#00e676;font-size:14px;min-height:18px"></p>
+          <button id="saveSecurityQuestionBtn" class="full-btn">Save Security Question</button>
+        </div>
+      </div>
+    </div>
+  <script src="app.js?v=7"></script>
+</body>
+</html>

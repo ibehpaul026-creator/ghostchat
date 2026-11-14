@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Panel</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: #07070f; color: #f0f0fa; min-height: 100vh; }
+    #loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .login-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 36px 28px; width: 360px; }
+    .login-box h2 { font-size: 24px; font-weight: 800; background: linear-gradient(135deg, #7c5cfc, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; }
+    .login-box input { width: 100%; background: rgba(255,255,255,0.05); color: #f0f0fa; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; font-size: 15px; margin-bottom: 12px; }
+    .login-box input:focus { outline: none; border-color: #7c5cfc; }
+    .login-box button { width: 100%; background: linear-gradient(135deg, #7c5cfc, #00d4ff); color: white; border: none; border-radius: 50px; padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    #loginErr { color: #ff4466; font-size: 13px; margin-top: 10px; min-height: 18px; }
+    #adminPanel { display: none; padding: 20px; max-width: 900px; margin: 0 auto; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .admin-header h1 { font-size: 22px; font-weight: 800; background: linear-gradient(135deg, #7c5cfc, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .stat-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px 24px; min-width: 140px; }
+    .stat-num { font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #7c5cfc, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .stat-label { font-size: 13px; color: #5a5a7a; margin-top: 4px; }
+    .section { margin-bottom: 32px; }
+    .section h2 { font-size: 17px; font-weight: 700; margin-bottom: 14px; color: #5a5a7a; text-transform: uppercase; letter-spacing: 0.5px; }
+    .item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; }
+    .item-info { flex: 1; min-width: 0; }
+    .item-author { font-weight: 700; font-size: 14px; color: #00d4ff; }
+    .item-text { font-size: 14px; color: #f0f0fa; margin-top: 4px; word-break: break-word; }
+    .item-time { font-size: 12px; color: #5a5a7a; margin-top: 4px; }
+    .item-reports { font-size: 12px; color: #ff4466; margin-top: 4px; font-weight: 600; }
+    .item-banned { font-size: 12px; color: #ff4466; font-weight: 700; margin-top: 2px; }
+    .btn { border: none; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.2s; white-space: nowrap; }
+    .btn:hover { opacity: 0.8; }
+    .btn-delete { background: rgba(255,68,102,0.15); color: #ff4466; border: 1px solid rgba(255,68,102,0.3); }
+    .btn-clear { background: rgba(0,212,255,0.1); color: #00d4ff; border: 1px solid rgba(0,212,255,0.2); }
+    .btn-ban { background: rgba(255,68,102,0.15); color: #ff4466; border: 1px solid rgba(255,68,102,0.3); }
+    .btn-unban { background: rgba(0,230,118,0.1); color: #00e676; border: 1px solid rgba(0,230,118,0.2); }
+    .btn-logout { background: rgba(255,255,255,0.08); color: #f0f0fa; border: 1px solid rgba(255,255,255,0.1); }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .tab-btn { background: rgba(255,255,255,0.05); color: #5a5a7a; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 8px 20px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .tab-btn.active { background: linear-gradient(135deg, #7c5cfc, #9b6dff); color: white; border-color: transparent; }
+    .empty { text-align: center; color: #5a5a7a; padding: 40px; font-size: 15px; }
+  </style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>Admin Panel</h2>
+    <input type="text" id="adminUser" placeholder="Username">
+    <input type="password" id="adminPass" placeholder="Password">
+    <button onclick="adminLogin()">Log in</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<div id="adminPanel">
+  <div class="admin-header">
+    <h1>⚡ Admin Panel</h1>
+    <button class="btn btn-logout" onclick="adminLogout()">Log out</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card"><div class="stat-num" id="statPosts">0</div><div class="stat-label">Total Posts</div></div>
+    <div class="stat-card"><div class="stat-num" id="statReported">0</div><div class="stat-label">Reported Posts</div></div>
+    <div class="stat-card"><div class="stat-num" id="statUsers">0</div><div class="stat-label">Users</div></div>
+    <div class="stat-card"><div class="stat-num" id="statBanned">0</div><div class="stat-label">Banned</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('reported')">🚨 Reported Posts</button>
+    <button class="tab-btn" onclick="showTab('all')">📋 All Posts</button>
+    <button class="tab-btn" onclick="showTab('users')">👥 Users</button>
+  </div>
+
+  <div id="tabReported" class="section"></div>
+  <div id="tabAll" class="section" style="display:none"></div>
+  <div id="tabUsers" class="section" style="display:none"></div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>
