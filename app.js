@@ -16,7 +16,7 @@ let isRegister = false;
 function showAuth(register) {
   isRegister = register;
   authTitle.textContent = register ? "Create account" : "Welcome back";
-  authSub.textContent = register ? "Join My Social Platform" : "Log in to continue";
+  authSub.textContent = register ? "Join GhostChat" : "Log in to continue";
   authBtn.textContent = register ? "Register" : "Log in";
   authSwitchBtn.textContent = register ? "Log in" : "Register";
   authErr.textContent = "";
@@ -36,7 +36,7 @@ async function tryAuth() {
     const data = await res.json();
     if (!res.ok) { authErr.textContent = data.error || "Something went wrong."; authBtn.disabled = false; authBtn.textContent = isRegister ? "Register" : "Log in"; return; }
     me = data.username; startApp();
-  } catch (e) { authErr.textContent = "Cannot reach the server. Run node server.js then open localhost:3000."; authBtn.disabled = false; authBtn.textContent = isRegister ? "Register" : "Log in"; }
+  } catch (e) { authErr.textContent = "Cannot reach the server."; authBtn.disabled = false; authBtn.textContent = isRegister ? "Register" : "Log in"; }
 }
 authBtn.addEventListener("click", tryAuth);
 authPass.addEventListener("keydown", function (e) { if (e.key === "Enter") tryAuth(); });
@@ -79,8 +79,22 @@ function muteUser(u){if(!mutedUsers.includes(u)){mutedUsers.push(u);saveList("mu
 function unmuteUser(u){mutedUsers=mutedUsers.filter(function(x){return x!==u;});saveList("muted_"+me,mutedUsers);renderFeed();alert(u+" unmuted.");}
 
 // ===== Bottom nav =====
-const pages = { home: document.getElementById("homePage"), search: document.getElementById("searchSection"), notifs: document.getElementById("notifsSection"), messages: document.getElementById("messagesSection"), profile: document.getElementById("profileSection") };
-const navBtns = { home: document.getElementById("navHome"), search: document.getElementById("navSearch"), notifs: document.getElementById("navNotifs"), messages: document.getElementById("navMessages"), profile: document.getElementById("navProfile") };
+const pages = {
+  home: document.getElementById("homePage"),
+  search: document.getElementById("searchSection"),
+  notifs: document.getElementById("notifsSection"),
+  messages: document.getElementById("messagesSection"),
+  profile: document.getElementById("profileSection"),
+  channels: document.getElementById("channelsSection")
+};
+const navBtns = {
+  home: document.getElementById("navHome"),
+  search: document.getElementById("navSearch"),
+  notifs: document.getElementById("navNotifs"),
+  messages: document.getElementById("navMessages"),
+  profile: document.getElementById("navProfile"),
+  channels: document.getElementById("navChannels")
+};
 
 function showPage(name) {
   currentPage = name;
@@ -93,6 +107,7 @@ function showPage(name) {
   if (name === "notifs") loadNotifsPage();
   if (name === "messages") loadDmList();
   if (name === "profile") loadProfilePage();
+  if (name === "channels") loadChannelsPage();
   if (name === "search") { const sp=document.getElementById("searchPageBox"); if(sp)sp.focus(); }
 }
 Object.keys(navBtns).forEach(function (k) { const b=navBtns[k]; if(b)b.addEventListener("click",function(){showPage(k);}); });
@@ -134,7 +149,7 @@ let pollEnabled = false;
 
 function updateRemoveButtons(){
   const opts = pollOptionsEl ? pollOptionsEl.querySelectorAll(".poll-compose-option") : [];
-  opts.forEach(function(row, i){
+  opts.forEach(function(row){
     const btn = row.querySelector(".remove-opt");
     if(btn) btn.style.visibility = opts.length > 2 ? "visible" : "hidden";
   });
@@ -261,6 +276,32 @@ if(quoteSubmitBtn) quoteSubmitBtn.addEventListener("click",async function(){
   quoteSubmitBtn.disabled=false; quoteSubmitBtn.textContent="Post";
 });
 
+// ===== Welcome message =====
+function showWelcomeMessage() {
+  const feed = document.getElementById("feed"); if (!feed) return;
+  if (feed.querySelector(".welcome-card")) return;
+  const starters = [
+    "👋 Introduce yourself to GhostChat!",
+    "💭 What's on your mind today?",
+    "🌍 Share something interesting you learned recently",
+    "🎯 What are your goals for this week?",
+    "🔥 What's the most exciting thing happening in your world?"
+  ];
+  const card = document.createElement("div"); card.className = "welcome-card";
+  card.innerHTML = "<h2>👻 Welcome to GhostChat!</h2><p>You are one of the first people here. Start the conversation and make this place your own.</p>";
+  const startersEl = document.createElement("div"); startersEl.className = "conversation-starters";
+  starters.forEach(function (s) {
+    const btn = document.createElement("button"); btn.className = "starter-btn"; btn.textContent = s;
+    btn.addEventListener("click", function () {
+      if(composeModal) composeModal.classList.add("open");
+      if(postText) { postText.value = s + " "; postText.focus(); updateCounter(); }
+    });
+    startersEl.appendChild(btn);
+  });
+  card.appendChild(startersEl);
+  feed.insertBefore(card, feed.firstChild);
+}
+
 // ===== Build one post =====
 function buildPost(p){
   const wrap = document.createElement("div"); wrap.className="post-card";
@@ -296,11 +337,9 @@ function buildPost(p){
   }
   wrap.appendChild(top);
 
-  // Body
   const body=document.createElement("div"); body.className="post-body";
   const textEl=document.createElement("div"); textEl.className="post-text"; addTextWithTags(textEl,p.text||""); body.appendChild(textEl);
 
-  // Quoted post
   if(p.quotedPost){
     const qw=document.createElement("div"); qw.className="quote-post";
     const qa=document.createElement("div"); qa.className="quote-author"; qa.textContent="@"+p.quotedPost.author;
@@ -308,7 +347,6 @@ function buildPost(p){
     qw.appendChild(qa); qw.appendChild(qt); body.appendChild(qw);
   }
 
-  // Media
   const mediaItems=p.mediaList&&p.mediaList.length?p.mediaList:(p.media?[p.media]:[]);
   if(mediaItems.length){
     const grid=document.createElement("div"); grid.className="media-grid count-"+mediaItems.length;
@@ -316,7 +354,6 @@ function buildPost(p){
     body.appendChild(grid);
   }
 
-  // Poll
   if(p.poll && p.poll.options){
     const totalVotes=p.poll.options.reduce(function(s,o){return s+(o.votes?o.votes.length:0);},0);
     const userVotedIdx=p.poll.options.findIndex(function(o){return o.votes&&o.votes.includes(me);});
@@ -329,11 +366,7 @@ function buildPost(p){
       const optText=document.createElement("span"); optText.className="poll-option-text"; optText.textContent=opt.text+(hasVoted&&idx===userVotedIdx?" ✓":"");
       const optPct=document.createElement("span"); optPct.className="poll-option-pct"; optPct.textContent=hasVoted?pct+"%":"";
       optEl.appendChild(bar); optEl.appendChild(optText); optEl.appendChild(optPct);
-      if(!hasVoted){
-        optEl.addEventListener("click",async function(){
-          try{await api("/api/posts/"+p.id+"/vote","POST",{optionIndex:idx});await loadPosts(true);}catch(e){alert(e.message);}
-        });
-      }
+      if(!hasVoted){optEl.addEventListener("click",async function(){try{await api("/api/posts/"+p.id+"/vote","POST",{optionIndex:idx});await loadPosts(true);}catch(e){alert(e.message);}});}
       pollWrap.appendChild(optEl);
     });
     const total=document.createElement("div"); total.className="poll-total"; total.textContent=totalVotes+(totalVotes===1?" vote":" votes");
@@ -342,7 +375,6 @@ function buildPost(p){
 
   wrap.appendChild(body);
 
-  // Actions
   const actions=document.createElement("div"); actions.className="post-actions";
   const liked=p.likes.includes(me);
   const likeBtn=document.createElement("button"); likeBtn.className="post-action-btn like-action"+(liked?" liked":"");
@@ -358,16 +390,16 @@ function buildPost(p){
   repostBtn.innerHTML="<span class='icon'>🔁</span><span>"+(p.reposts.length||"")+"</span>";
   repostBtn.addEventListener("click",function(e){
     e.stopPropagation();
-    const menu=document.createElement("div"); menu.style.cssText="position:fixed;background:var(--card2);border:1px solid var(--border);border-radius:16px;padding:8px;z-index:1000;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,0.5)";
-    const rect=repostBtn.getBoundingClientRect(); menu.style.top=(rect.bottom+8)+"px"; menu.style.left=rect.left+"px";
+    const menu2=document.createElement("div"); menu2.style.cssText="position:fixed;background:var(--card2);border:1px solid var(--border);border-radius:16px;padding:8px;z-index:1000;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,0.5)";
+    const rect=repostBtn.getBoundingClientRect(); menu2.style.top=(rect.bottom+8)+"px"; menu2.style.left=rect.left+"px";
     const repostItem=document.createElement("button"); repostItem.style.cssText="display:block;width:100%;background:none;border:none;padding:12px 16px;text-align:left;color:var(--text);font-size:14px;cursor:pointer;border-radius:10px;font-family:Inter,sans-serif";
     repostItem.textContent=reposted?"✕ Undo Repost":"🔁 Repost";
-    repostItem.addEventListener("click",function(){document.body.removeChild(menu);toggle(p.id,"reposts");});
+    repostItem.addEventListener("click",function(){document.body.removeChild(menu2);toggle(p.id,"reposts");});
     const quoteItem=document.createElement("button"); quoteItem.style.cssText="display:block;width:100%;background:none;border:none;padding:12px 16px;text-align:left;color:var(--text);font-size:14px;cursor:pointer;border-radius:10px;font-family:Inter,sans-serif";
     quoteItem.textContent="✍️ Quote Repost";
-    quoteItem.addEventListener("click",function(){document.body.removeChild(menu);openQuoteModal(p);});
-    menu.appendChild(repostItem); menu.appendChild(quoteItem); document.body.appendChild(menu);
-    setTimeout(function(){document.addEventListener("click",function rm(){document.body.contains(menu)&&document.body.removeChild(menu);document.removeEventListener("click",rm);},{once:true});},10);
+    quoteItem.addEventListener("click",function(){document.body.removeChild(menu2);openQuoteModal(p);});
+    menu2.appendChild(repostItem); menu2.appendChild(quoteItem); document.body.appendChild(menu2);
+    setTimeout(function(){document.addEventListener("click",function rm(){document.body.contains(menu2)&&document.body.removeChild(menu2);document.removeEventListener("click",rm);},{once:true});},10);
   });
 
   const isSaved=savedIds.includes(p.id);
@@ -398,10 +430,8 @@ function buildPost(p){
   const reportBtn=document.createElement("button"); reportBtn.className="post-action-btn"; reportBtn.innerHTML="<span class='icon'>⚑</span>";
   reportBtn.addEventListener("click",function(){if(confirm("Report this post?"))toggle(p.id,"reports");});
   actions.appendChild(reportBtn);
-
   wrap.appendChild(actions);
 
-  // Reply box
   const replyBox=document.createElement("div"); replyBox.className="reply-box"+(openReplies.has(p.id)?" open":"");
   const replyInput=document.createElement("input"); replyInput.type="text"; replyInput.maxLength=280; replyInput.placeholder="Reply...";
   async function sendReply(){const t=replyInput.value.trim();if(!t)return;try{await api("/api/posts/"+p.id+"/reply","POST",{text:t});focusReplyFor=p.id;await loadPosts(true);}catch(e){alert(e.message);}}
@@ -409,21 +439,17 @@ function buildPost(p){
   replyBox.appendChild(replyInput); replyBox.appendChild(makeBtn("","Send",sendReply)); wrap.appendChild(replyBox);
   if(focusReplyFor===p.id){focusReplyFor=null;setTimeout(function(){replyInput.focus();},0);}
 
-  // Replies with likes
   if(p.replies&&p.replies.length){
     p.replies.forEach(function(r,idx){
       const row=document.createElement("div"); row.className="reply";
       const b=document.createElement("b"); b.textContent=r.author;
       const txt=document.createTextNode(" "+r.text);
       row.appendChild(b); row.appendChild(txt);
-      // Reply like button
       const replyActions=document.createElement("div"); replyActions.className="reply-actions";
       const rLikes=r.likes?r.likes:[]; const rLiked=rLikes.includes(me);
       const rLikeBtn=document.createElement("button"); rLikeBtn.className="reply-like-btn"+(rLiked?" liked":"");
       rLikeBtn.innerHTML=(rLiked?"♥":"♡")+(rLikes.length?" "+rLikes.length:"");
-      rLikeBtn.addEventListener("click",async function(){
-        try{await api("/api/posts/"+p.id+"/reply-like","POST",{replyIndex:idx});await loadPosts(true);}catch(e){alert(e.message);}
-      });
+      rLikeBtn.addEventListener("click",async function(){try{await api("/api/posts/"+p.id+"/reply-like","POST",{replyIndex:idx});await loadPosts(true);}catch(e){alert(e.message);}});
       replyActions.appendChild(rLikeBtn); row.appendChild(replyActions);
       wrap.appendChild(row);
     });
@@ -439,14 +465,25 @@ function renderFeed(){
   const feed=document.getElementById("feed"); if(!feed)return;
   feed.textContent="";
   posts.forEach(function(p){feed.appendChild(buildPost(p));});
-  if(!feed.children.length){const e=document.createElement("div");e.className="empty";e.innerHTML="<div class='empty-icon'>✦</div><div>No posts yet. Be the first!</div>";feed.appendChild(e);}
+  if(!feed.children.length){
+    const e=document.createElement("div");e.className="empty";e.innerHTML="<div class='empty-icon'>✦</div><div>No posts yet. Be the first!</div>";
+    feed.appendChild(e);
+    showWelcomeMessage();
+  }
   const pc=document.getElementById("postCount"); if(pc)pc.textContent=posts.filter(function(p){return p.author===me;}).length;
 }
 
 // ===== Load posts =====
+let currentFeed = "foryou";
 async function loadPosts(force){
-  try{const data=await api("/api/posts");const json=JSON.stringify(data);if(!force&&json===lastJson)return;lastJson=json;posts=data;renderFeed();}catch(e){}
+  try{const data=await api("/api/posts?feed="+currentFeed);const json=JSON.stringify(data);if(!force&&json===lastJson)return;lastJson=json;posts=data;renderFeed();}catch(e){}
 }
+
+// ===== Feed tabs =====
+const feedTabForYou = document.getElementById("feedTabForYou");
+const feedTabFollowing = document.getElementById("feedTabFollowing");
+if(feedTabForYou) feedTabForYou.addEventListener("click",function(){currentFeed="foryou";feedTabForYou.classList.add("active");if(feedTabFollowing)feedTabFollowing.classList.remove("active");loadPosts(true);});
+if(feedTabFollowing) feedTabFollowing.addEventListener("click",function(){currentFeed="following";feedTabFollowing.classList.add("active");if(feedTabForYou)feedTabForYou.classList.remove("active");loadPosts(true);});
 
 // ===== Trending =====
 function updateTrending(){
@@ -592,7 +629,6 @@ if(chatViewBox){
   });
 }
 
-// Messages tabs
 const msgTabDm=document.getElementById("msgTabDm");
 const msgTabGroups=document.getElementById("msgTabGroups");
 if(msgTabDm)msgTabDm.addEventListener("click",function(){msgTabDm.classList.add("active");if(msgTabGroups)msgTabGroups.classList.remove("active");const dl=document.getElementById("dmList");const gl=document.getElementById("groupListPage");if(dl)dl.style.display="block";if(gl)gl.style.display="none";loadDmList();});
@@ -624,7 +660,6 @@ if(groupCreateBtn)groupCreateBtn.addEventListener("click",async function(){
   try{await api("/api/groups","POST",{name,members});if(ni)ni.value="";if(mi)mi.value="";loadGroupListPage();}catch(e){alert(e.message);}
 });
 
-// Group panel
 const groupPanel=document.getElementById("groupPanel");
 const groupClose=document.getElementById("groupClose");
 const groupPanelTitle=document.getElementById("groupPanelTitle");
@@ -667,7 +702,7 @@ if(groupMsgBox)groupMsgBox.addEventListener("keydown",function(e){if(e.key==="En
 if(groupClose)groupClose.addEventListener("click",function(){if(groupPanel)groupPanel.classList.remove("open");clearInterval(groupTimer);currentGroup=null;});
 
 // ===== Stories =====
-let storyTimer=null, currentStory=null;
+let storyTimer=null;
 async function loadStories(){
   const storiesRow=document.getElementById("storiesRow"); if(!storiesRow)return;
   try{
@@ -691,7 +726,6 @@ async function loadStories(){
 }
 
 async function openStory(s){
-  currentStory=s;
   const sv=document.getElementById("storyViewer"); if(!sv)return;
   sv.classList.add("open");
   const sa=document.getElementById("storyAuthor");if(sa)sa.textContent=s.author;
@@ -704,26 +738,9 @@ async function openStory(s){
   clearTimeout(storyTimer);
   setTimeout(function(){if(sp){sp.style.transition="width 5s linear";sp.style.width="100%";}},50);
   storyTimer=setTimeout(function(){closeStory();},5100);
-  // Record view and show count if it's your story
-  try{
-    const viewData=await api("/api/stories/"+s.id+"/view","POST",{});
-    if(s.author===me){
-      const vc=document.getElementById("storyViewCount");
-      const vl=document.getElementById("storyViewList");
-      if(vc){vc.textContent="👁 "+(viewData.views?viewData.views.length:0)+" views";vc.style.display="block";}
-      if(vl&&viewData.views&&viewData.views.length){vl.textContent=viewData.views.slice(0,5).join(", ")+(viewData.views.length>5?" +more":"");vl.style.display="block";}
-    }
-  }catch(e){}
+  try{const viewData=await api("/api/stories/"+s.id+"/view","POST",{});if(s.author===me){const vc=document.getElementById("storyViewCount");const vl=document.getElementById("storyViewList");if(vc){vc.textContent="👁 "+(viewData.views?viewData.views.length:0)+" views";vc.style.display="block";}if(vl&&viewData.views&&viewData.views.length){vl.textContent=viewData.views.slice(0,5).join(", ")+(viewData.views.length>5?" +more":"");vl.style.display="block";}}}catch(e){}
 }
-
-function closeStory(){
-  currentStory=null;
-  const sv=document.getElementById("storyViewer");if(sv)sv.classList.remove("open");
-  const sc=document.getElementById("storyContent");if(sc)sc.textContent="";
-  const vc=document.getElementById("storyViewCount");if(vc)vc.style.display="none";
-  const vl=document.getElementById("storyViewList");if(vl)vl.style.display="none";
-  clearTimeout(storyTimer); loadStories();
-}
+function closeStory(){const sv=document.getElementById("storyViewer");if(sv)sv.classList.remove("open");const sc=document.getElementById("storyContent");if(sc)sc.textContent="";const vc=document.getElementById("storyViewCount");if(vc)vc.style.display="none";const vl=document.getElementById("storyViewList");if(vl)vl.style.display="none";clearTimeout(storyTimer);loadStories();}
 const storyCloseBtn=document.getElementById("storyClose");if(storyCloseBtn)storyCloseBtn.addEventListener("click",closeStory);
 const storyFileInput=document.getElementById("storyFileInput");
 if(storyFileInput)storyFileInput.addEventListener("change",async function(){
@@ -873,6 +890,21 @@ if(savePwdBtn)savePwdBtn.addEventListener("click",async function(){
   try{await api("/api/me/password","POST",{oldPassword:current,newPassword:newPwd});if(changePwdOverlay)changePwdOverlay.classList.remove("open");alert("Password changed!");}catch(e){errEl.textContent=e.message;}
 });
 
+// ===== Security question =====
+const securityQuestionItem=document.getElementById("securityQuestionItem");
+const securityQuestionOverlay=document.getElementById("securityQuestionOverlay");
+const securityQuestionClose=document.getElementById("securityQuestionClose");
+const saveSecurityQuestionBtn=document.getElementById("saveSecurityQuestionBtn");
+if(securityQuestionItem)securityQuestionItem.addEventListener("click",function(){if(settingsOverlay)settingsOverlay.classList.remove("open");const err=document.getElementById("securityQuestionErr");if(err)err.textContent="";const suc=document.getElementById("securityQuestionSuccess");if(suc)suc.textContent="";const ai=document.getElementById("securityAnswerInput");if(ai)ai.value="";if(securityQuestionOverlay)securityQuestionOverlay.classList.add("open");});
+if(securityQuestionClose)securityQuestionClose.addEventListener("click",function(){if(securityQuestionOverlay)securityQuestionOverlay.classList.remove("open");});
+if(saveSecurityQuestionBtn)saveSecurityQuestionBtn.addEventListener("click",async function(){
+  const question=document.getElementById("securityQuestionSelect").value;const answer=document.getElementById("securityAnswerInput").value.trim();const err=document.getElementById("securityQuestionErr");const suc=document.getElementById("securityQuestionSuccess");err.textContent="";suc.textContent="";
+  if(!answer){err.textContent="Please enter your answer.";return;}if(answer.length<2){err.textContent="Answer is too short.";return;}
+  saveSecurityQuestionBtn.disabled=true;saveSecurityQuestionBtn.textContent="Saving...";
+  try{await api("/api/me/security-question","POST",{question,answer});suc.textContent="✅ Security question saved!";setTimeout(function(){if(securityQuestionOverlay)securityQuestionOverlay.classList.remove("open");},1500);}catch(e){err.textContent=e.message;}
+  saveSecurityQuestionBtn.disabled=false;saveSecurityQuestionBtn.textContent="Save Security Question";
+});
+
 // ===== Delete Account =====
 const deleteAccountItem=document.getElementById("deleteAccountItem");
 if(deleteAccountItem)deleteAccountItem.addEventListener("click",async function(){
@@ -900,6 +932,104 @@ function showFollowRequests(requests){
     row.appendChild(av);row.appendChild(name);row.appendChild(acceptBtn);row.appendChild(declineBtn);card.appendChild(row);
   });
   const profileSection=document.getElementById("profileSection");if(profileSection)profileSection.insertBefore(card,profileSection.firstChild);
+}
+
+// ===== Password reset =====
+const resetScreen=document.getElementById("resetScreen");
+const forgotPwdBtn=document.getElementById("forgotPwdBtn");
+const resetBackBtn=document.getElementById("resetBackBtn");
+const resetNext1Btn=document.getElementById("resetNext1Btn");
+const resetSubmitBtn=document.getElementById("resetSubmitBtn");
+const resetDoneBtn=document.getElementById("resetDoneBtn");
+
+function showResetStep(n){document.querySelectorAll(".reset-step").forEach(function(el){el.classList.remove("active");});const step=document.getElementById("resetStep"+n);if(step)step.classList.add("active");}
+if(forgotPwdBtn)forgotPwdBtn.addEventListener("click",function(){if(resetScreen)resetScreen.classList.add("open");showResetStep(1);const ru=document.getElementById("resetUsername");if(ru)ru.value="";const re1=document.getElementById("resetErr1");if(re1)re1.textContent="";});
+if(resetBackBtn)resetBackBtn.addEventListener("click",function(){if(resetScreen)resetScreen.classList.remove("open");});
+if(resetNext1Btn)resetNext1Btn.addEventListener("click",async function(){
+  const username=document.getElementById("resetUsername").value.trim();const err=document.getElementById("resetErr1");
+  if(!username){err.textContent="Please enter your username.";return;}
+  resetNext1Btn.disabled=true;resetNext1Btn.textContent="Looking up...";
+  try{const data=await fetch("/api/auth/security-question?username="+encodeURIComponent(username));const json=await data.json();if(!data.ok){err.textContent=json.error||"Account not found.";resetNext1Btn.disabled=false;resetNext1Btn.textContent="Continue";return;}const qt=document.getElementById("resetQuestionText");if(qt)qt.textContent=json.question;const ra=document.getElementById("resetAnswer");if(ra)ra.value="";const rnp=document.getElementById("resetNewPwd");if(rnp)rnp.value="";const rcp=document.getElementById("resetConfirmPwd");if(rcp)rcp.value="";const re2=document.getElementById("resetErr2");if(re2)re2.textContent="";showResetStep(2);}catch(e){err.textContent="Could not connect.";}
+  resetNext1Btn.disabled=false;resetNext1Btn.textContent="Continue";
+});
+if(resetSubmitBtn)resetSubmitBtn.addEventListener("click",async function(){
+  const username=document.getElementById("resetUsername").value.trim();const answer=document.getElementById("resetAnswer").value.trim();const newPwd=document.getElementById("resetNewPwd").value;const confirmPwd=document.getElementById("resetConfirmPwd").value;const err=document.getElementById("resetErr2");err.textContent="";
+  if(!answer){err.textContent="Please enter your answer.";return;}if(!newPwd){err.textContent="Please enter a new password.";return;}if(newPwd.length<6){err.textContent="Password must be at least 6 characters.";return;}if(newPwd!==confirmPwd){err.textContent="Passwords do not match.";return;}
+  resetSubmitBtn.disabled=true;resetSubmitBtn.textContent="Resetting...";
+  try{const res=await fetch("/api/auth/reset-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,answer,newPassword:newPwd})});const json=await res.json();if(!res.ok){err.textContent=json.error||"Wrong answer.";resetSubmitBtn.disabled=false;resetSubmitBtn.textContent="Reset Password";return;}showResetStep(3);}catch(e){err.textContent="Could not connect.";}
+  resetSubmitBtn.disabled=false;resetSubmitBtn.textContent="Reset Password";
+});
+if(resetDoneBtn)resetDoneBtn.addEventListener("click",function(){if(resetScreen)resetScreen.classList.remove("open");showAuth(false);});
+
+// ===== Channels / Knowledge & Updates =====
+let currentChannel = "tech";
+
+async function loadChannelsPage(){
+  const tabsEl=document.getElementById("channelTabs");
+  const feedEl=document.getElementById("channelFeed");
+  if(!tabsEl||!feedEl)return;
+  if(!tabsEl.children.length){
+    try{
+      const channels=await api("/api/channels");
+      channels.forEach(function(ch,idx){
+        const btn=document.createElement("button");btn.className="channel-tab"+(idx===0?" active":"");
+        btn.textContent=ch.emoji+" "+ch.name;btn.dataset.id=ch.id;
+        btn.addEventListener("click",function(){
+          document.querySelectorAll(".channel-tab").forEach(function(b){b.classList.remove("active");});
+          btn.classList.add("active");currentChannel=ch.id;loadChannelFeed(ch.id);
+        });
+        tabsEl.appendChild(btn);
+      });
+    }catch(e){}
+  }
+  loadChannelFeed(currentChannel);
+}
+
+async function loadChannelFeed(channelId){
+  const feedEl=document.getElementById("channelFeed");if(!feedEl)return;
+  feedEl.innerHTML="<div class='channel-loading'>⏳ Loading latest updates...</div>";
+  try{
+    const items=await api("/api/channels/"+channelId);
+    feedEl.textContent="";
+    if(!items.length){feedEl.innerHTML="<div class='channel-empty'><div class='icon'>📡</div><div>No updates available right now. Check back soon.</div></div>";return;}
+    items.forEach(function(item){
+      const card=document.createElement("div");
+      card.className="news-card"+(channelId==="alerts"?" alert-card":"");
+      const isAlert=channelId==="alerts";
+      card.innerHTML=(isAlert?"<div class='alert-badge'>🚨 ALERT</div>":"")+
+        "<div class='news-source'>"+item.source+"</div>"+
+        "<div class='news-title'><a href='"+item.link+"' target='_blank' rel='noopener'>"+item.title+"</a></div>"+
+        (item.summary?"<div class='news-summary'>"+item.summary.slice(0,180)+(item.summary.length>180?"...":"")+"</div>":"")+
+        "<div class='news-meta'><span>"+timeAgo(item.time)+"</span><a href='"+item.link+"' target='_blank' rel='noopener' class='news-link'>Read full article →</a></div>";
+      const actions=document.createElement("div");actions.className="news-actions";
+      const commentBtn=document.createElement("button");commentBtn.className="news-comment-btn";commentBtn.innerHTML="💬 Discuss";
+      const commentsEl=document.createElement("div");commentsEl.className="news-comments";
+      commentBtn.addEventListener("click",async function(){
+        commentsEl.classList.toggle("open");
+        if(commentsEl.classList.contains("open")&&!commentsEl.dataset.loaded){commentsEl.dataset.loaded="1";loadNewsComments(channelId,item.id,commentsEl);}
+      });
+      const inputRow=document.createElement("div");inputRow.className="news-comment-input";
+      const input=document.createElement("input");input.type="text";input.maxLength=280;input.placeholder="Share your thoughts...";
+      const sendBtn=document.createElement("button");sendBtn.textContent="Post";
+      sendBtn.addEventListener("click",async function(){const text=input.value.trim();if(!text)return;try{await api("/api/channels/"+channelId+"/comments","POST",{newsId:item.id,text});input.value="";loadNewsComments(channelId,item.id,commentsEl);}catch(e){alert(e.message);}});
+      input.addEventListener("keydown",function(e){if(e.key==="Enter")sendBtn.click();});
+      inputRow.appendChild(input);inputRow.appendChild(sendBtn);
+      commentsEl.appendChild(inputRow);
+      const commentsList=document.createElement("div");commentsList.className="news-comments-list";commentsEl.appendChild(commentsList);
+      actions.appendChild(commentBtn);card.appendChild(actions);card.appendChild(commentsEl);
+      feedEl.appendChild(card);
+    });
+  }catch(e){feedEl.innerHTML="<div class='channel-empty'><div class='icon'>⚠️</div><div>Could not load updates. Please try again.</div></div>";}
+}
+
+async function loadNewsComments(channelId,newsId,container){
+  const list=container.querySelector(".news-comments-list");if(!list)return;
+  try{
+    const comments=await api("/api/channels/"+channelId+"/comments?newsId="+newsId);
+    list.textContent="";
+    if(!comments.length){list.innerHTML="<p style='color:var(--muted);font-size:13px;padding:8px 0'>No comments yet. Be the first!</p>";return;}
+    comments.forEach(function(c){const item=document.createElement("div");item.className="news-comment-item";item.innerHTML="<b>"+c.author+"</b> "+c.text+"<span style='color:var(--muted);font-size:11px;margin-left:8px'>"+timeAgo(c.time)+"</span>";list.appendChild(item);});
+  }catch(e){}
 }
 
 // ===== Voice and Video Calls =====
@@ -978,285 +1108,3 @@ async function startApp(){
 
 // ===== Boot =====
 checkSession();
-// ===== For You / Following feed tabs =====
-let currentFeed = "foryou";
-const feedTabForYou = document.getElementById("feedTabForYou");
-const feedTabFollowing = document.getElementById("feedTabFollowing");
-
-async function loadFeed(feedType) {
-  currentFeed = feedType;
-  if (feedTabForYou) feedTabForYou.classList.toggle("active", feedType === "foryou");
-  if (feedTabFollowing) feedTabFollowing.classList.toggle("active", feedType === "following");
-  try {
-    const data = await api("/api/posts?feed=" + feedType);
-    lastJson = JSON.stringify(data); posts = data; renderFeed();
-  } catch (e) {}
-}
-
-if (feedTabForYou) feedTabForYou.addEventListener("click", function () { loadFeed("foryou"); });
-if (feedTabFollowing) feedTabFollowing.addEventListener("click", function () { loadFeed("following"); });
-
-// Override loadPosts to respect current feed tab
-const _origLoadPosts = loadPosts;
-async function loadPosts(force) {
-  try {
-    const data = await api("/api/posts?feed=" + currentFeed);
-    const json = JSON.stringify(data);
-    if (!force && json === lastJson) return;
-    lastJson = json; posts = data; renderFeed();
-  } catch (e) {}
-}
-
-// ===== Password reset =====
-const resetScreen = document.getElementById("resetScreen");
-const forgotPwdBtn = document.getElementById("forgotPwdBtn");
-const resetBackBtn = document.getElementById("resetBackBtn");
-const resetNext1Btn = document.getElementById("resetNext1Btn");
-const resetSubmitBtn = document.getElementById("resetSubmitBtn");
-const resetDoneBtn = document.getElementById("resetDoneBtn");
-
-function showResetStep(n) {
-  document.querySelectorAll(".reset-step").forEach(function (el) { el.classList.remove("active"); });
-  const step = document.getElementById("resetStep" + n);
-  if (step) step.classList.add("active");
-}
-
-if (forgotPwdBtn) forgotPwdBtn.addEventListener("click", function () {
-  if (resetScreen) resetScreen.classList.add("open");
-  showResetStep(1);
-  const ru = document.getElementById("resetUsername"); if (ru) ru.value = "";
-  const re1 = document.getElementById("resetErr1"); if (re1) re1.textContent = "";
-});
-
-if (resetBackBtn) resetBackBtn.addEventListener("click", function () {
-  if (resetScreen) resetScreen.classList.remove("open");
-});
-
-if (resetNext1Btn) resetNext1Btn.addEventListener("click", async function () {
-  const username = document.getElementById("resetUsername").value.trim();
-  const err = document.getElementById("resetErr1");
-  if (!username) { err.textContent = "Please enter your username."; return; }
-  resetNext1Btn.disabled = true; resetNext1Btn.textContent = "Looking up...";
-  try {
-    const data = await fetch("/api/auth/security-question?username=" + encodeURIComponent(username));
-    const json = await data.json();
-    if (!data.ok) { err.textContent = json.error || "Account not found."; resetNext1Btn.disabled = false; resetNext1Btn.textContent = "Continue"; return; }
-    const qt = document.getElementById("resetQuestionText"); if (qt) qt.textContent = json.question;
-    const ra = document.getElementById("resetAnswer"); if (ra) ra.value = "";
-    const rnp = document.getElementById("resetNewPwd"); if (rnp) rnp.value = "";
-    const rcp = document.getElementById("resetConfirmPwd"); if (rcp) rcp.value = "";
-    const re2 = document.getElementById("resetErr2"); if (re2) re2.textContent = "";
-    showResetStep(2);
-  } catch (e) { err.textContent = "Could not connect. Try again."; }
-  resetNext1Btn.disabled = false; resetNext1Btn.textContent = "Continue";
-});
-
-if (resetSubmitBtn) resetSubmitBtn.addEventListener("click", async function () {
-  const username = document.getElementById("resetUsername").value.trim();
-  const answer = document.getElementById("resetAnswer").value.trim();
-  const newPwd = document.getElementById("resetNewPwd").value;
-  const confirmPwd = document.getElementById("resetConfirmPwd").value;
-  const err = document.getElementById("resetErr2");
-  err.textContent = "";
-  if (!answer) { err.textContent = "Please enter your answer."; return; }
-  if (!newPwd) { err.textContent = "Please enter a new password."; return; }
-  if (newPwd.length < 6) { err.textContent = "Password must be at least 6 characters."; return; }
-  if (newPwd !== confirmPwd) { err.textContent = "Passwords do not match."; return; }
-  resetSubmitBtn.disabled = true; resetSubmitBtn.textContent = "Resetting...";
-  try {
-    const res = await fetch("/api/auth/reset-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, answer, newPassword: newPwd }) });
-    const json = await res.json();
-    if (!res.ok) { err.textContent = json.error || "Wrong answer."; resetSubmitBtn.disabled = false; resetSubmitBtn.textContent = "Reset Password"; return; }
-    showResetStep(3);
-  } catch (e) { err.textContent = "Could not connect. Try again."; }
-  resetSubmitBtn.disabled = false; resetSubmitBtn.textContent = "Reset Password";
-});
-
-if (resetDoneBtn) resetDoneBtn.addEventListener("click", function () {
-  if (resetScreen) resetScreen.classList.remove("open");
-  showAuth(false);
-});
-
-// ===== Security question setup =====
-const securityQuestionItem = document.getElementById("securityQuestionItem");
-const securityQuestionOverlay = document.getElementById("securityQuestionOverlay");
-const securityQuestionClose = document.getElementById("securityQuestionClose");
-const saveSecurityQuestionBtn = document.getElementById("saveSecurityQuestionBtn");
-
-if (securityQuestionItem) securityQuestionItem.addEventListener("click", function () {
-  if (settingsOverlay) settingsOverlay.classList.remove("open");
-  const err = document.getElementById("securityQuestionErr"); if (err) err.textContent = "";
-  const suc = document.getElementById("securityQuestionSuccess"); if (suc) suc.textContent = "";
-  const ai = document.getElementById("securityAnswerInput"); if (ai) ai.value = "";
-  if (securityQuestionOverlay) securityQuestionOverlay.classList.add("open");
-});
-
-if (securityQuestionClose) securityQuestionClose.addEventListener("click", function () {
-  if (securityQuestionOverlay) securityQuestionOverlay.classList.remove("open");
-});
-
-if (saveSecurityQuestionBtn) saveSecurityQuestionBtn.addEventListener("click", async function () {
-  const question = document.getElementById("securityQuestionSelect").value;
-  const answer = document.getElementById("securityAnswerInput").value.trim();
-  const err = document.getElementById("securityQuestionErr");
-  const suc = document.getElementById("securityQuestionSuccess");
-  err.textContent = ""; suc.textContent = "";
-  if (!answer) { err.textContent = "Please enter your answer."; return; }
-  if (answer.length < 2) { err.textContent = "Answer is too short."; return; }
-  saveSecurityQuestionBtn.disabled = true; saveSecurityQuestionBtn.textContent = "Saving...";
-  try {
-    await api("/api/me/security-question", "POST", { question, answer });
-    suc.textContent = "✅ Security question saved!";
-    setTimeout(function () { if (securityQuestionOverlay) securityQuestionOverlay.classList.remove("open"); }, 1500);
-  } catch (e) { err.textContent = e.message; }
-  saveSecurityQuestionBtn.disabled = false; saveSecurityQuestionBtn.textContent = "Save Security Question";
-});
-// ===== Welcome message =====
-function showWelcomeMessage() {
-  const feed = document.getElementById("feed"); if (!feed) return;
-  const starters = [
-    "👋 Introduce yourself to GhostChat!",
-    "💭 What's on your mind today?",
-    "🌍 Share something interesting you learned recently",
-    "🎯 What are your goals for this week?",
-    "🔥 What's the most exciting thing happening in your world?"
-  ];
-  const card = document.createElement("div"); card.className = "welcome-card";
-  card.innerHTML = "<h2>👻 Welcome to GhostChat!</h2><p>You are one of the first people here. Start the conversation and make this place your own.</p>";
-  const startersEl = document.createElement("div"); startersEl.className = "conversation-starters";
-  starters.forEach(function (s) {
-    const btn = document.createElement("button"); btn.className = "starter-btn"; btn.textContent = s;
-    btn.addEventListener("click", function () {
-      const composeModal = document.getElementById("composeModal");
-      const postText = document.getElementById("postText");
-      if (composeModal) composeModal.classList.add("open");
-      if (postText) { postText.value = s + " "; postText.focus(); updateCounter(); }
-    });
-    startersEl.appendChild(btn);
-  });
-  card.appendChild(startersEl);
-  feed.insertBefore(card, feed.firstChild);
-}
-
-// Override renderFeed to show welcome message when empty
-const _origRenderFeed = renderFeed;
-function renderFeed() {
-  _origRenderFeed();
-  const feed = document.getElementById("feed");
-  if (feed && posts.length === 0) showWelcomeMessage();
-}
-
-// ===== Channels / Knowledge & Updates =====
-const navChannels = document.getElementById("navChannels");
-const channelsSection = document.getElementById("channelsSection");
-
-// Add channels to pages and navBtns
-if (channelsSection) pages.channels = channelsSection;
-if (navChannels) navBtns.channels = navChannels;
-
-let currentChannel = "tech";
-let channelData = {};
-
-if (navChannels) navChannels.addEventListener("click", function () { showPage("channels"); });
-
-const _origShowPage = showPage;
-function showPage(name) {
-  _origShowPage(name);
-  if (name === "channels") loadChannelsPage();
-}
-
-async function loadChannelsPage() {
-  const tabsEl = document.getElementById("channelTabs");
-  const feedEl = document.getElementById("channelFeed");
-  if (!tabsEl || !feedEl) return;
-
-  // Load channel list if not loaded
-  if (!tabsEl.children.length) {
-    try {
-      const channels = await api("/api/channels");
-      channels.forEach(function (ch, idx) {
-        const btn = document.createElement("button"); btn.className = "channel-tab" + (idx === 0 ? " active" : "");
-        btn.textContent = ch.emoji + " " + ch.name; btn.dataset.id = ch.id;
-        btn.addEventListener("click", function () {
-          document.querySelectorAll(".channel-tab").forEach(function (b) { b.classList.remove("active"); });
-          btn.classList.add("active"); currentChannel = ch.id; loadChannelFeed(ch.id);
-        });
-        tabsEl.appendChild(btn);
-      });
-    } catch (e) {}
-  }
-  loadChannelFeed(currentChannel);
-}
-
-async function loadChannelFeed(channelId) {
-  const feedEl = document.getElementById("channelFeed"); if (!feedEl) return;
-  feedEl.innerHTML = "<div class='channel-loading'>⏳ Loading latest updates...</div>";
-  try {
-    const items = await api("/api/channels/" + channelId);
-    feedEl.textContent = "";
-    if (!items.length) {
-      feedEl.innerHTML = "<div class='channel-empty'><div class='icon'>📡</div><div>No updates available right now. Check back soon.</div></div>";
-      return;
-    }
-    items.forEach(function (item) {
-      const card = document.createElement("div");
-      card.className = "news-card" + (channelId === "alerts" ? " alert-card" : "");
-      const isAlert = channelId === "alerts";
-      card.innerHTML = (isAlert ? "<div class='alert-badge'>🚨 ALERT</div>" : "") +
-        "<div class='news-source'>" + item.source + "</div>" +
-        "<div class='news-title'><a href='" + item.link + "' target='_blank' rel='noopener'>" + item.title + "</a></div>" +
-        (item.summary ? "<div class='news-summary'>" + item.summary.slice(0, 180) + (item.summary.length > 180 ? "..." : "") + "</div>" : "") +
-        "<div class='news-meta'><span>" + timeAgo(item.time) + "</span><a href='" + item.link + "' target='_blank' rel='noopener' class='news-link'>Read full article →</a></div>";
-
-      // Comment section
-      const actions = document.createElement("div"); actions.className = "news-actions";
-      const commentBtn = document.createElement("button"); commentBtn.className = "news-comment-btn";
-      commentBtn.innerHTML = "💬 Discuss";
-      const commentsEl = document.createElement("div"); commentsEl.className = "news-comments";
-
-      commentBtn.addEventListener("click", async function () {
-        commentsEl.classList.toggle("open");
-        if (commentsEl.classList.contains("open") && !commentsEl.dataset.loaded) {
-          commentsEl.dataset.loaded = "1";
-          loadNewsComments(channelId, item.id, commentsEl);
-        }
-      });
-
-      const inputRow = document.createElement("div"); inputRow.className = "news-comment-input";
-      const input = document.createElement("input"); input.type = "text"; input.maxLength = 280; input.placeholder = "Share your thoughts...";
-      const sendBtn = document.createElement("button"); sendBtn.textContent = "Post";
-      sendBtn.addEventListener("click", async function () {
-        const text = input.value.trim(); if (!text) return;
-        try {
-          await api("/api/channels/" + channelId + "/comments", "POST", { newsId: item.id, text });
-          input.value = ""; loadNewsComments(channelId, item.id, commentsEl);
-        } catch (e) { alert(e.message); }
-      });
-      input.addEventListener("keydown", function (e) { if (e.key === "Enter") sendBtn.click(); });
-      inputRow.appendChild(input); inputRow.appendChild(sendBtn);
-      commentsEl.appendChild(inputRow);
-
-      const commentsList = document.createElement("div"); commentsList.className = "news-comments-list";
-      commentsEl.appendChild(commentsList);
-
-      actions.appendChild(commentBtn); card.appendChild(actions); card.appendChild(commentsEl);
-      feedEl.appendChild(card);
-    });
-  } catch (e) {
-    feedEl.innerHTML = "<div class='channel-empty'><div class='icon'>⚠️</div><div>Could not load updates. Please try again later.</div></div>";
-  }
-}
-
-async function loadNewsComments(channelId, newsId, container) {
-  const list = container.querySelector(".news-comments-list"); if (!list) return;
-  try {
-    const comments = await api("/api/channels/" + channelId + "/comments?newsId=" + newsId);
-    list.textContent = "";
-    if (!comments.length) { list.innerHTML = "<p style='color:var(--muted);font-size:13px;padding:8px 0'>No comments yet. Be the first!</p>"; return; }
-    comments.forEach(function (c) {
-      const item = document.createElement("div"); item.className = "news-comment-item";
-      item.innerHTML = "<b>" + c.author + "</b> " + c.text + "<span style='color:var(--muted);font-size:11px;margin-left:8px'>" + timeAgo(c.time) + "</span>";
-      list.appendChild(item);
-    });
-  } catch (e) {}
-}
