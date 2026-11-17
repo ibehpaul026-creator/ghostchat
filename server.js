@@ -26,7 +26,88 @@ try { groups = JSON.parse(fs.readFileSync(GROUPS_FILE, "utf8")); } catch (e) { g
 
 const callSignals = {};
 const typingStatus = {};
+// ===== RSS News Channels =====
+const https = require("https");
+const http2 = require("http");
 
+const CHANNELS = {
+  tech: { name: "Tech & Innovation", emoji: "💻", color: "#7c5cfc", sources: [
+    { name: "TechCrunch", url: "https://techcrunch.com/feed/", limit: 5 },
+    { name: "Wired", url: "https://www.wired.com/feed/rss", limit: 5 }
+  ]},
+  science: { name: "Science & Discovery", emoji: "🔬", color: "#00d4ff", sources: [
+    { name: "NASA", url: "https://www.nasa.gov/rss/dyn/breaking_news.rss", limit: 5 },
+    { name: "Science Daily", url: "https://www.sciencedaily.com/rss/all.xml", limit: 5 }
+  ]},
+  weather: { name: "Weather & Climate", emoji: "🌍", color: "#00e676", sources: [
+    { name: "NOAA", url: "https://www.nhc.noaa.gov/index-at.xml", limit: 5 },
+    { name: "BBC Weather", url: "http://feeds.bbci.co.uk/weather/feeds/rss/1600942.xml", limit: 5 }
+  ]},
+  alerts: { name: "Disaster Alerts", emoji: "🚨", color: "#ff4466", sources: [
+    { name: "USGS Earthquakes", url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.atom", limit: 8 },
+    { name: "ReliefWeb", url: "https://reliefweb.int/disasters/rss.xml", limit: 5 }
+  ]},
+  education: { name: "Education", emoji: "📚", color: "#f59e0b", sources: [
+    { name: "Edutopia", url: "https://www.edutopia.org/rss.xml", limit: 5 },
+    { name: "BBC Learning", url: "http://feeds.bbci.co.uk/news/education/rss.xml", limit: 5 }
+  ]}
+};
+
+const newsCache = {};
+const newsComments = {};
+let newsLastFetch = {};
+
+function fetchRSS(url) {
+  return new Promise(function (resolve) {
+    const mod = url.startsWith("https") ? https : http2;
+    try {
+      const req = mod.get(url, { timeout: 8000, headers: { "User-Agent": "GhostChat/1.0 RSS Reader" } }, function (res) {
+        if (res.statusCode !== 200) { res.resume(); resolve(""); return; }
+        let data = "";
+        res.on("data", function (c) { data += c; if (data.length > 500000) { res.destroy(); resolve(data); } });
+        res.on("end", function () { resolve(data); });
+        res.on("error", function () { resolve(""); });
+      });
+      req.on("error", function () { resolve(""); });
+      req.on("timeout", function () { req.destroy(); resolve(""); });
+    } catch (e) { resolve(""); }
+  });
+}
+
+function parseRSS(xml, sourceName, limit) {
+  const items = [];
+  try {
+    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>|<entry[^>]*>([\s\S]*?)<\/entry>/gi;
+    let match;
+    while ((match = itemRegex.exec(xml)) !== null && items.length < limit) {
+      const block = match[1] || match[2] || "";
+      const title = (block.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) || [])[1] || "";
+      const link = (block.match(/<link[^>]*>([^<]+)<\/link>|<link[^>]+href="([^"]+)"/) || [])[1] || (block.match(/<link[^>]+href="([^"]+)"/) || [])[1] || "";
+      const desc = (block.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>|<summary[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/summary>/) || [])[1] || (block.match(/<summary[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/summary>/) || [])[1] || "";
+      const pubDate = (block.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>|<updated[^>]*>([\s\S]*?)<\/updated>/) || [])[1] || "";
+      const cleanTitle = title.replace(/<[^>]+>/g, "").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim();
+      const cleanDesc = desc.replace(/<[^>]+>/g, "").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim().slice(0, 200);
+      const cleanLink = link.trim();
+      if (cleanTitle && cleanLink) {
+        items.push({ id: crypto.createHash("md5").update(cleanLink).digest("hex"), title: cleanTitle, summary: cleanDesc, link: cleanLink, source: sourceName, time: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString() });
+      }
+    }
+  } catch (e) {}
+  return items;
+}
+
+async function fetchChannel(channelId) {
+  const channel = CHANNELS[channelId]; if (!channel) return [];
+  const now = Date.now();
+  if (newsCache[channelId] && newsLastFetch[channelId] && (now - newsLastFetch[channelId]) < 3600000) return newsCache[channelId];
+  const allItems = [];
+  for (const source of channel.sources) {
+    try { const xml = await fetchRSS(source.url); const items = parseRSS(xml, source.name, source.limit); allItems.push(...items); } catch (e) {}
+  }
+  allItems.sort(function (a, b) { return new Date(b.time) - new Date(a.time); });
+  if (allItems.length > 0) { newsCache[channelId] = allItems; newsLastFetch[channelId] = now; }
+  return allItems.length > 0 ? allItems : (newsCache[channelId] || []);
+}
 function savePosts() { fs.writeFileSync(DATA_FILE, JSON.stringify(posts, null, 2)); }
 function saveChats() { fs.writeFileSync(CHAT_FILE, JSON.stringify(chats, null, 2)); }
 function saveUsers() { fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2)); }
@@ -580,7 +661,33 @@ async function handleApi(req, res, url, pathname) {
     const me = getUser(req); if (!me) return sendJson(res, 401, { error: "Not logged in" });
     const signals = callSignals[me] || []; callSignals[me] = []; return sendJson(res, 200, signals);
   }
-
+// ----- Channels / News -----
+  if (pathname === "/api/channels" && req.method === "GET") {
+    if (!getUser(req)) return sendJson(res, 401, { error: "Not logged in" });
+    return sendJson(res, 200, Object.keys(CHANNELS).map(function (id) { return { id, name: CHANNELS[id].name, emoji: CHANNELS[id].emoji, color: CHANNELS[id].color }; }));
+  }
+  if (parts[1] === "channels" && parts[2] && !parts[3] && req.method === "GET") {
+    if (!getUser(req)) return sendJson(res, 401, { error: "Not logged in" });
+    if (!CHANNELS[parts[2]]) return sendJson(res, 404, { error: "Channel not found" });
+    const items = await fetchChannel(parts[2]);
+    return sendJson(res, 200, items);
+  }
+  if (parts[1] === "channels" && parts[2] && parts[3] === "comments" && req.method === "GET") {
+    if (!getUser(req)) return sendJson(res, 401, { error: "Not logged in" });
+    const key = parts[2] + "_" + (url.searchParams.get("newsId") || "");
+    return sendJson(res, 200, newsComments[key] || []);
+  }
+  if (parts[1] === "channels" && parts[2] && parts[3] === "comments" && req.method === "POST") {
+    const user = getUser(req); if (!user) return sendJson(res, 401, { error: "Not logged in" });
+    const b = await readJson(req); const text = clean(b.text, 280); const newsId = clean(b.newsId, 100);
+    if (!text || !newsId) return sendJson(res, 400, { error: "Missing fields" });
+    const key = parts[2] + "_" + newsId;
+    if (!newsComments[key]) newsComments[key] = [];
+    const comment = { id: crypto.randomUUID(), author: user, text, time: new Date().toISOString() };
+    newsComments[key].push(comment);
+    if (newsComments[key].length > 100) newsComments[key] = newsComments[key].slice(-100);
+    return sendJson(res, 201, comment);
+  }
   // ----- Active users -----
   if (pathname === "/api/users" && req.method === "GET") {
     if (!getUser(req)) return sendJson(res, 401, { error: "Not logged in" });

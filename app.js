@@ -1111,3 +1111,152 @@ if (saveSecurityQuestionBtn) saveSecurityQuestionBtn.addEventListener("click", a
   } catch (e) { err.textContent = e.message; }
   saveSecurityQuestionBtn.disabled = false; saveSecurityQuestionBtn.textContent = "Save Security Question";
 });
+// ===== Welcome message =====
+function showWelcomeMessage() {
+  const feed = document.getElementById("feed"); if (!feed) return;
+  const starters = [
+    "👋 Introduce yourself to GhostChat!",
+    "💭 What's on your mind today?",
+    "🌍 Share something interesting you learned recently",
+    "🎯 What are your goals for this week?",
+    "🔥 What's the most exciting thing happening in your world?"
+  ];
+  const card = document.createElement("div"); card.className = "welcome-card";
+  card.innerHTML = "<h2>👻 Welcome to GhostChat!</h2><p>You are one of the first people here. Start the conversation and make this place your own.</p>";
+  const startersEl = document.createElement("div"); startersEl.className = "conversation-starters";
+  starters.forEach(function (s) {
+    const btn = document.createElement("button"); btn.className = "starter-btn"; btn.textContent = s;
+    btn.addEventListener("click", function () {
+      const composeModal = document.getElementById("composeModal");
+      const postText = document.getElementById("postText");
+      if (composeModal) composeModal.classList.add("open");
+      if (postText) { postText.value = s + " "; postText.focus(); updateCounter(); }
+    });
+    startersEl.appendChild(btn);
+  });
+  card.appendChild(startersEl);
+  feed.insertBefore(card, feed.firstChild);
+}
+
+// Override renderFeed to show welcome message when empty
+const _origRenderFeed = renderFeed;
+function renderFeed() {
+  _origRenderFeed();
+  const feed = document.getElementById("feed");
+  if (feed && posts.length === 0) showWelcomeMessage();
+}
+
+// ===== Channels / Knowledge & Updates =====
+const navChannels = document.getElementById("navChannels");
+const channelsSection = document.getElementById("channelsSection");
+
+// Add channels to pages and navBtns
+if (channelsSection) pages.channels = channelsSection;
+if (navChannels) navBtns.channels = navChannels;
+
+let currentChannel = "tech";
+let channelData = {};
+
+if (navChannels) navChannels.addEventListener("click", function () { showPage("channels"); });
+
+const _origShowPage = showPage;
+function showPage(name) {
+  _origShowPage(name);
+  if (name === "channels") loadChannelsPage();
+}
+
+async function loadChannelsPage() {
+  const tabsEl = document.getElementById("channelTabs");
+  const feedEl = document.getElementById("channelFeed");
+  if (!tabsEl || !feedEl) return;
+
+  // Load channel list if not loaded
+  if (!tabsEl.children.length) {
+    try {
+      const channels = await api("/api/channels");
+      channels.forEach(function (ch, idx) {
+        const btn = document.createElement("button"); btn.className = "channel-tab" + (idx === 0 ? " active" : "");
+        btn.textContent = ch.emoji + " " + ch.name; btn.dataset.id = ch.id;
+        btn.addEventListener("click", function () {
+          document.querySelectorAll(".channel-tab").forEach(function (b) { b.classList.remove("active"); });
+          btn.classList.add("active"); currentChannel = ch.id; loadChannelFeed(ch.id);
+        });
+        tabsEl.appendChild(btn);
+      });
+    } catch (e) {}
+  }
+  loadChannelFeed(currentChannel);
+}
+
+async function loadChannelFeed(channelId) {
+  const feedEl = document.getElementById("channelFeed"); if (!feedEl) return;
+  feedEl.innerHTML = "<div class='channel-loading'>⏳ Loading latest updates...</div>";
+  try {
+    const items = await api("/api/channels/" + channelId);
+    feedEl.textContent = "";
+    if (!items.length) {
+      feedEl.innerHTML = "<div class='channel-empty'><div class='icon'>📡</div><div>No updates available right now. Check back soon.</div></div>";
+      return;
+    }
+    items.forEach(function (item) {
+      const card = document.createElement("div");
+      card.className = "news-card" + (channelId === "alerts" ? " alert-card" : "");
+      const isAlert = channelId === "alerts";
+      card.innerHTML = (isAlert ? "<div class='alert-badge'>🚨 ALERT</div>" : "") +
+        "<div class='news-source'>" + item.source + "</div>" +
+        "<div class='news-title'><a href='" + item.link + "' target='_blank' rel='noopener'>" + item.title + "</a></div>" +
+        (item.summary ? "<div class='news-summary'>" + item.summary.slice(0, 180) + (item.summary.length > 180 ? "..." : "") + "</div>" : "") +
+        "<div class='news-meta'><span>" + timeAgo(item.time) + "</span><a href='" + item.link + "' target='_blank' rel='noopener' class='news-link'>Read full article →</a></div>";
+
+      // Comment section
+      const actions = document.createElement("div"); actions.className = "news-actions";
+      const commentBtn = document.createElement("button"); commentBtn.className = "news-comment-btn";
+      commentBtn.innerHTML = "💬 Discuss";
+      const commentsEl = document.createElement("div"); commentsEl.className = "news-comments";
+
+      commentBtn.addEventListener("click", async function () {
+        commentsEl.classList.toggle("open");
+        if (commentsEl.classList.contains("open") && !commentsEl.dataset.loaded) {
+          commentsEl.dataset.loaded = "1";
+          loadNewsComments(channelId, item.id, commentsEl);
+        }
+      });
+
+      const inputRow = document.createElement("div"); inputRow.className = "news-comment-input";
+      const input = document.createElement("input"); input.type = "text"; input.maxLength = 280; input.placeholder = "Share your thoughts...";
+      const sendBtn = document.createElement("button"); sendBtn.textContent = "Post";
+      sendBtn.addEventListener("click", async function () {
+        const text = input.value.trim(); if (!text) return;
+        try {
+          await api("/api/channels/" + channelId + "/comments", "POST", { newsId: item.id, text });
+          input.value = ""; loadNewsComments(channelId, item.id, commentsEl);
+        } catch (e) { alert(e.message); }
+      });
+      input.addEventListener("keydown", function (e) { if (e.key === "Enter") sendBtn.click(); });
+      inputRow.appendChild(input); inputRow.appendChild(sendBtn);
+      commentsEl.appendChild(inputRow);
+
+      const commentsList = document.createElement("div"); commentsList.className = "news-comments-list";
+      commentsEl.appendChild(commentsList);
+
+      actions.appendChild(commentBtn); card.appendChild(actions); card.appendChild(commentsEl);
+      feedEl.appendChild(card);
+    });
+  } catch (e) {
+    feedEl.innerHTML = "<div class='channel-empty'><div class='icon'>⚠️</div><div>Could not load updates. Please try again later.</div></div>";
+  }
+}
+
+async function loadNewsComments(channelId, newsId, container) {
+  const list = container.querySelector(".news-comments-list"); if (!list) return;
+  try {
+    const comments = await api("/api/channels/" + channelId + "/comments?newsId=" + newsId);
+    list.textContent = "";
+    if (!comments.length) { list.innerHTML = "<p style='color:var(--muted);font-size:13px;padding:8px 0'>No comments yet. Be the first!</p>"; return; }
+    comments.forEach(function (c) {
+      const item = document.createElement("div"); item.className = "news-comment-item";
+      item.innerHTML = "<b>" + c.author + "</b> " + c.text + "<span style='color:var(--muted);font-size:11px;margin-left:8px'>" + timeAgo(c.time) + "</span>";
+      list.appendChild(item);
+    });
+  } catch (e) {}
+}
