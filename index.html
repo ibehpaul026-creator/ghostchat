@@ -6,15 +6,16 @@
   <title>GhostChat</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-
-  <div id="authScreen" class="auth-screen">
+<body>  <div id="authScreen" class="auth-screen">
     <div class="auth-box">
-      <div class="auth-logo">✦</div>
+      <div class="auth-logo">👻</div>
       <h2 id="authTitle">Welcome back</h2>
       <p id="authSub">Log in to GhostChat</p>
       <input type="text" id="authUser" placeholder="Username" maxlength="30" autocomplete="username">
       <input type="password" id="authPass" placeholder="Password" maxlength="100" autocomplete="current-password">
+      <!-- Extra fields shown only during registration -->
+      <input type="text" id="authDisplayName" placeholder="Display Name" maxlength="50" style="display:none">
+      <input type="email" id="authEmail" placeholder="Email address (optional)" maxlength="100" style="display:none">
       <button id="authBtn" class="auth-submit">Log in</button>
       <p id="authErr" class="auth-err"></p>
       <p class="auth-switch">Don't have an account? <button id="authSwitchBtn" class="link-btn">Register</button></p>
@@ -69,7 +70,9 @@
       <div id="messagesSection">
         <div class="messages-tabs">
           <button class="messages-tab active" id="msgTabDm">Direct</button>
-          <button class="messages-tab" id="msgTabGroups">Groups</button>
+    
+
+        <button class="messages-tab" id="msgTabGroups">Groups</button>
         </div>
         <div class="messages-list" id="dmList"></div>
         <div class="messages-list" id="groupListPage" style="display:none">

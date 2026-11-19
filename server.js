@@ -268,21 +268,23 @@ async function handleApi(req, res, url, pathname) {
     return sendJson(res, 200, { ok: true });
   }
 
-  // ----- Register -----
+   // ----- Register -----
   if (pathname === "/api/register" && req.method === "POST") {
     const b = await readJson(req);
     const username = clean(b.username, 30).replace(/[^a-zA-Z0-9_]/g, "");
     const password = clean(b.password, 100);
+    const email = clean(b.email || "", 100);
+    const displayName = clean(b.displayName || "", 50);
     if (username.length < 3) return sendJson(res, 400, { error: "Username must be at least 3 characters" });
     if (password.length < 6) return sendJson(res, 400, { error: "Password must be at least 6 characters" });
     if (users[username.toLowerCase()]) return sendJson(res, 400, { error: "That username is already taken" });
+    if (email && Object.values(users).some(function(u){ return u.email && u.email.toLowerCase() === email.toLowerCase(); })) return sendJson(res, 400, { error: "That email is already registered" });
     const { hash, salt } = hashPassword(password);
-    users[username.toLowerCase()] = { username, hash, salt, bio: "", joined: new Date().toISOString(), following: [], isPrivate: false, followRequests: [], banned: false, settings: { likes: true, replies: true, follows: true, messages: true } };
+    users[username.toLowerCase()] = { username, hash, salt, bio: "", email: email || "", displayName: displayName || username, joined: new Date().toISOString(), following: [], isPrivate: false, followRequests: [], banned: false, settings: { likes: true, replies: true, follows: true, messages: true } };
     saveUsers();
     const token = makeToken(); sessions[token] = username; setCookie(res, token);
     return sendJson(res, 201, { username });
   }
-
   // ----- Login -----
   if (pathname === "/api/login" && req.method === "POST") {
     const b = await readJson(req);
@@ -307,7 +309,7 @@ async function handleApi(req, res, url, pathname) {
     const username = getUser(req); if (!username) return sendJson(res, 401, { error: "Not logged in" });
     const record = users[username.toLowerCase()];
     const following = getFollowing(username); const followers = getFollowers(username);
-    return sendJson(res, 200, { username, displayName: record ? (record.displayName || username) : username, bio: record ? record.bio : "", website: record ? (record.website || "") : "", banner: record ? (record.banner || "") : "", following: following.length, followers: followers.length, followingList: following, isPrivate: record ? !!record.isPrivate : false, followRequests: record ? (record.followRequests || []) : [], settings: record ? (record.settings || {}) : {}, hasSecurityQuestion: record ? !!record.securityQuestion : false });
+    return sendJson(res, 200, { username, displayName: record ? (record.displayName || username) : username, bio: record ? record.bio : "", website: record ? (record.website || "") : "", banner: record ? (record.banner || "") : "", avatar: record ? (record.avatar || "") : "", following: following.length, followers: followers.length, followingList: following, isPrivate: record ? !!record.isPrivate : false, followRequests: record ? (record.followRequests || []) : [], settings: record ? (record.settings || {}) : {}, hasSecurityQuestion: record ? !!record.securityQuestion : false });
   }
 
   // ----- Delete account -----
@@ -333,6 +335,7 @@ async function handleApi(req, res, url, pathname) {
     if (b.website !== undefined) record.website = clean(b.website, 100);
     if (b.displayName !== undefined) record.displayName = clean(b.displayName, 50);
     if (b.banner !== undefined && (b.banner === "" || /^\/uploads\/[\w.-]+$/.test(b.banner))) record.banner = b.banner;
+    if (b.avatar !== undefined && (b.avatar === "" || /^\/uploads\/[\w.-]+$/.test(b.avatar))) record.avatar = b.avatar;
     saveUsers(); return sendJson(res, 200, { ok: true });
   }
 

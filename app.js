@@ -21,28 +21,31 @@ function showAuth(register) {
   authSwitchBtn.textContent = register ? "Log in" : "Register";
   authErr.textContent = "";
   authUser.value = ""; authPass.value = "";
+  const dn = document.getElementById("authDisplayName");
+  const em = document.getElementById("authEmail");
+  if (dn) dn.style.display = register ? "block" : "none";
+  if (em) em.style.display = register ? "block" : "none";
   authScreen.style.display = "flex"; appEl.style.display = "none";
 }
 
 async function tryAuth() {
   const username = authUser.value.trim(), password = authPass.value.trim();
+  const displayName = (document.getElementById("authDisplayName") || {}).value || "";
+  const email = (document.getElementById("authEmail") || {}).value || "";
   if (!username) { authErr.textContent = "Please enter a username."; return; }
   if (!password) { authErr.textContent = "Please enter a password."; return; }
   if (isRegister && username.length < 3) { authErr.textContent = "Username must be at least 3 characters."; return; }
   if (isRegister && password.length < 6) { authErr.textContent = "Password must be at least 6 characters."; return; }
   authBtn.disabled = true; authBtn.textContent = isRegister ? "Registering..." : "Logging in..."; authErr.textContent = "";
   try {
-    const res = await fetch(isRegister ? "/api/register" : "/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
+    const body = { username, password };
+    if (isRegister) { body.displayName = displayName; body.email = email; }
+    const res = await fetch(isRegister ? "/api/register" : "/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await res.json();
     if (!res.ok) { authErr.textContent = data.error || "Something went wrong."; authBtn.disabled = false; authBtn.textContent = isRegister ? "Register" : "Log in"; return; }
     me = data.username; startApp();
   } catch (e) { authErr.textContent = "Cannot reach the server."; authBtn.disabled = false; authBtn.textContent = isRegister ? "Register" : "Log in"; }
 }
-authBtn.addEventListener("click", tryAuth);
-authPass.addEventListener("keydown", function (e) { if (e.key === "Enter") tryAuth(); });
-authSwitchBtn.addEventListener("click", function () { showAuth(!isRegister); });
-logoutBtn.addEventListener("click", async function () { try { await fetch("/api/logout", { method: "POST" }); } catch (e) {} me = ""; clearInterval(mainTimer); showAuth(false); });
-
 async function checkSession() {
   try { const res = await fetch("/api/me"); if (res.ok) { const d = await res.json(); me = d.username; startApp(); } else showAuth(false); }
   catch (e) { showAuth(false); }
@@ -795,6 +798,7 @@ async function loadProfilePage(){
     const mb=document.getElementById("bio");if(mb)mb.textContent=meData.bio||"Add a bio";
     const mw=document.getElementById("myWebsite");if(mw){if(meData.website){mw.textContent=meData.website.replace(/^https?:\/\//,"");mw.href=meData.website.startsWith("http")?meData.website:"https://"+meData.website;mw.style.display="block";}else mw.style.display="none";}
     const banner=document.getElementById("myBanner");if(banner&&meData.banner)banner.style.backgroundImage="url("+meData.banner+")";
+    if(meData.avatar&&bigAvatar){bigAvatar.textContent="";bigAvatar.style.backgroundImage="url("+meData.avatar+")";}
     const mf=document.getElementById("myFollowers");if(mf)mf.textContent=meData.followers||0;
     const mfg=document.getElementById("myFollowing");if(mfg)mfg.textContent=(meData.followingList||[]).length;
     myFollowingList=meData.followingList||[];
@@ -812,7 +816,18 @@ async function loadProfilePage(){
 const bigAvatar=document.getElementById("myAvatar");
 const avatarInput=document.createElement("input");avatarInput.type="file";avatarInput.accept="image/*";avatarInput.style.display="none";document.body.appendChild(avatarInput);
 if(bigAvatar){bigAvatar.title="Click to change picture";bigAvatar.addEventListener("click",function(){avatarInput.click();});}
-avatarInput.addEventListener("change",function(){const f=this.files[0];if(!f)return;const url=URL.createObjectURL(f);if(bigAvatar){bigAvatar.textContent="";bigAvatar.style.backgroundImage="url("+url+")";}});
+avatarInput.addEventListener("change",async function(){
+  const f=this.files[0];if(!f)return;
+  const url=URL.createObjectURL(f);
+  if(bigAvatar){bigAvatar.textContent="";bigAvatar.style.backgroundImage="url("+url+")";}
+  try{
+    const up=await fetch("/api/upload",{method:"POST",headers:{"Content-Type":f.type},body:f});
+    if(!up.ok){alert("Upload failed");return;}
+    const data=await up.json();
+    await api("/api/me/profile","PUT",{avatar:data.url});
+    if(bigAvatar){bigAvatar.style.backgroundImage="url("+data.url+")";}
+  }catch(e){alert(e.message);}
+});
 
 // ===== Edit Profile =====
 const editProfileBtn=document.getElementById("editProfileBtn");
@@ -1088,6 +1103,7 @@ async function startApp(){
     const meData=await api("/api/me");
     myFollowingList=meData.followingList||[];
     if(bigAvatar){bigAvatar.textContent=initial(me);bigAvatar.style.backgroundImage="";}
+    if(meData.avatar&&bigAvatar){bigAvatar.textContent="";bigAvatar.style.backgroundImage="url("+meData.avatar+")";}
     const mn=document.getElementById("myName");if(mn)mn.textContent=meData.displayName||me;
     const mh=document.getElementById("myHandle");if(mh)mh.textContent="@"+me.toLowerCase();
     const mb=document.getElementById("bio");if(mb)mb.textContent=meData.bio||"Add a bio";
