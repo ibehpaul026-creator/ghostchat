@@ -272,9 +272,6 @@ header button:hover { background: var(--soft); }
 .story-view-count { position: absolute; bottom: 90px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 600; }
 .story-view-list { position: absolute; bottom: 65px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.5); font-size: 12px; }
 
-/* ===== Feed ===== */
-#feedSection { }
-
 /* ===== Feed tabs ===== */
 .feed-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: var(--header-h); z-index: 50; }
 .feed-tab { flex: 1; background: none; border: none; color: var(--muted); padding: 14px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; border-bottom: 1px solid transparent; transition: all 0.2s; }

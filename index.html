@@ -6,14 +6,13 @@
   <title>GhostChat</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>  <div id="authScreen" class="auth-screen">
+<body>   <div id="authScreen" class="auth-screen">
     <div class="auth-box">
-      <div class="auth-logo">👻</div>
+      <span class="auth-logo">👻</span>
       <h2 id="authTitle">Welcome back</h2>
       <p id="authSub">Log in to GhostChat</p>
       <input type="text" id="authUser" placeholder="Username" maxlength="30" autocomplete="username">
       <input type="password" id="authPass" placeholder="Password" maxlength="100" autocomplete="current-password">
-      <!-- Extra fields shown only during registration -->
       <input type="text" id="authDisplayName" placeholder="Display Name" maxlength="50" style="display:none">
       <input type="email" id="authEmail" placeholder="Email address (optional)" maxlength="100" style="display:none">
       <button id="authBtn" class="auth-submit">Log in</button>
@@ -22,7 +21,6 @@
       <p class="auth-switch" style="margin-top:8px"><button id="forgotPwdBtn" class="link-btn" style="color:var(--muted)">Forgot password?</button></p>
     </div>
   </div>
-
   <div id="app" style="display:none">
     <header>
       <button id="settingsBtn">⚙️</button>
